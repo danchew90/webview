@@ -8,14 +8,17 @@
       :root {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         color: #222;
-        background: #f5f5f5;
+        background: #f3f5f7;
+      }
+      * {
+        box-sizing: border-box;
       }
       body {
         margin: 0;
-        padding: 20px;
+        padding: 16px;
       }
       .card {
-        max-width: 840px;
+        max-width: 920px;
         margin: 0 auto;
         background: #fff;
         border-radius: 14px;
@@ -27,14 +30,15 @@
         font-size: 22px;
       }
       .desc {
-        color: #666;
-        margin-bottom: 18px;
+        color: #5f6368;
+        margin-bottom: 16px;
+        line-height: 1.5;
       }
       .section {
-        border: 1px solid #e4e4e4;
+        border: 1px solid #e4e7eb;
         border-radius: 10px;
         padding: 14px;
-        margin-bottom: 14px;
+        margin-bottom: 12px;
       }
       .section h2 {
         margin: 0 0 10px;
@@ -44,9 +48,14 @@
         display: flex;
         gap: 10px;
       }
+      @media (max-width: 720px) {
+        .row {
+          flex-direction: column;
+        }
+      }
       input {
         flex: 1;
-        border: 1px solid #ccc;
+        border: 1px solid #c9cdd3;
         border-radius: 8px;
         padding: 10px 12px;
         font-size: 14px;
@@ -58,9 +67,14 @@
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
+        white-space: nowrap;
       }
       #sendToRN {
         background: #4caf50;
+        color: #fff;
+      }
+      #sendUrlToRN {
+        background: #ff9800;
         color: #fff;
       }
       #simulateFromRN {
@@ -71,12 +85,12 @@
         margin: 0;
         padding: 0;
         list-style: none;
-        max-height: 320px;
+        max-height: 340px;
         overflow: auto;
       }
       li {
         border-left: 4px solid #ddd;
-        background: #fafafa;
+        background: #fafbfc;
         border-radius: 8px;
         padding: 10px;
         margin-bottom: 8px;
@@ -86,10 +100,17 @@
         font-weight: 700;
         margin-bottom: 4px;
       }
-      .rn-to-web { color: #2196f3; }
-      .web-to-rn { color: #4caf50; }
+      .rn-to-web {
+        color: #2196f3;
+      }
+      .web-to-rn {
+        color: #4caf50;
+      }
+      .url-to-rn {
+        color: #fb8c00;
+      }
       code {
-        background: #f0f0f0;
+        background: #eef1f4;
         border-radius: 6px;
         padding: 2px 6px;
       }
@@ -99,16 +120,24 @@
     <main class="card">
       <h1>RN ↔ WebView 통신 페이지</h1>
       <p class="desc">
-        Expo React Native WebView와 postMessage 통신 확인용 페이지입니다.
-        RN에서는 <code>WebView.postMessage()</code>, 웹에서는
-        <code>window.ReactNativeWebView.postMessage()</code> 를 사용합니다.
+        Expo React Native WebView와 postMessage 통신 확인용 페이지입니다. RN에서는
+        <code>WebView.postMessage()</code>, 웹에서는
+        <code>window.ReactNativeWebView.postMessage()</code>를 사용합니다.
       </p>
 
       <section class="section">
-        <h2>WEB → RN 보내기</h2>
+        <h2>WEB → RN 일반 메시지</h2>
         <div class="row">
           <input id="webMessage" placeholder="RN으로 보낼 메시지 입력" />
           <button id="sendToRN">RN으로 전송</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>WEB → RN URL 타입 전송 (type: "URL")</h2>
+        <div class="row">
+          <input id="urlMessage" placeholder="https://example.com" value="https://webview-omega.vercel.app/" />
+          <button id="sendUrlToRN">URL 전송</button>
         </div>
       </section>
 
@@ -144,6 +173,16 @@
         }
       }
 
+      function postToRN(payload, label, className) {
+        if (!window.ReactNativeWebView?.postMessage) {
+          addLog(label, 'ReactNativeWebView 객체가 없어 전송 실패 (브라우저 단독 실행 중)', className);
+          return;
+        }
+
+        window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+        addLog(label, JSON.stringify(payload), className);
+      }
+
       $('sendToRN').addEventListener('click', () => {
         const text = $('webMessage').value.trim();
         if (!text) return;
@@ -154,20 +193,33 @@
           timestamp: new Date().toLocaleTimeString(),
         };
 
-        if (window.ReactNativeWebView?.postMessage) {
-          window.ReactNativeWebView.postMessage(JSON.stringify(payload));
-          addLog('WEB → RN', text, 'web-to-rn');
-        } else {
-          addLog('WEB → RN', 'ReactNativeWebView 객체가 없어 전송 실패 (브라우저 단독 실행 중)', 'web-to-rn');
-        }
-
+        postToRN(payload, 'WEB → RN', 'web-to-rn');
         $('webMessage').value = '';
+      });
+
+      $('sendUrlToRN').addEventListener('click', () => {
+        const url = $('urlMessage').value.trim();
+        if (!url) return;
+
+        const payload = {
+          type: 'URL',
+          url,
+          timestamp: new Date().toLocaleTimeString(),
+        };
+
+        postToRN(payload, 'WEB → RN (URL)', 'url-to-rn');
       });
 
       function onRNMessage(event) {
         const parsed = parseMaybeJson(event.data);
-        const text = typeof parsed === 'object' && parsed !== null ? (parsed.message ?? JSON.stringify(parsed)) : String(parsed);
-        addLog('RN → WEB', text, 'rn-to-web');
+
+        if (typeof parsed === 'object' && parsed !== null) {
+          const msg = parsed.message ?? parsed.url ?? JSON.stringify(parsed);
+          addLog('RN → WEB', msg, 'rn-to-web');
+          return;
+        }
+
+        addLog('RN → WEB', String(parsed), 'rn-to-web');
       }
 
       window.addEventListener('message', onRNMessage);

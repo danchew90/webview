@@ -6,19 +6,50 @@
 
 이 저장소를 Vercel에 연결하면 루트의 `index.html`이 바로 배포됩니다.
 
-## React Native 연결 방법
+## 이번 개선 포인트
 
-Expo 코드의 URL을 배포 주소로 바꿔주세요.
+- 웹 화면을 모바일에서도 보기 편하게 반응형(`row` → 세로 스택)으로 개선
+- 전송 로직 공통화(`postToRN`)로 코드 단순화
+- `type: "URL"` 전용 버튼/입력창 추가
+  - 버튼 클릭 시 RN으로 아래 payload 전송
 
-```tsx
-const VERCEL_URL = 'https://your-app.vercel.app';
+```json
+{
+  "type": "URL",
+  "url": "https://example.com",
+  "timestamp": "오후 9:10:00"
+}
 ```
 
-WebView 설정은 질문에서 주신 코드 그대로 사용하되,
-웹에서는 아래 방식으로 RN으로 전송합니다.
+## Expo Snack 쪽 최적화 예시
 
-- Web → RN: `window.ReactNativeWebView.postMessage(JSON.stringify(payload))`
-- RN → Web: RN의 `webViewRef.current?.postMessage(payload)` 를 웹에서 `message` 이벤트로 수신
+아래처럼 RN에서 `onMessage`를 확장하면, 웹에서 보낸 URL 타입을 바로 처리할 수 있습니다.
+
+```tsx
+const handleMessage = (event) => {
+  const raw = event.nativeEvent.data;
+
+  try {
+    const parsed = JSON.parse(raw);
+
+    if (parsed.type === 'URL' && parsed.url) {
+      addMessage('WEB → RN (URL)', parsed.url, '#FF9800');
+      // 필요하면 여기서 Linking.openURL(parsed.url) 같은 처리 가능
+      return;
+    }
+
+    addMessage('WEB → RN', parsed.message || raw, '#2196F3');
+  } catch {
+    addMessage('WEB → RN', raw, '#2196F3');
+  }
+};
+```
+
+그리고 WebView 주소는 실제 배포 주소로 맞춰주세요.
+
+```tsx
+const VERCEL_URL = 'https://webview-omega.vercel.app/';
+```
 
 ## 로컬 확인
 
@@ -26,4 +57,8 @@ WebView 설정은 질문에서 주신 코드 그대로 사용하되,
 python3 -m http.server 4173
 ```
 
-그다음 브라우저에서 `http://localhost:4173` 접속해서 동작을 확인할 수 있습니다.
+브라우저에서 `http://localhost:4173` 접속 후 아래를 확인하세요.
+
+1. 일반 메시지 전송 버튼
+2. URL 전송 버튼 (`type: "URL"`)
+3. RN → WEB 시뮬레이션 버튼
